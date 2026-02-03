@@ -39,7 +39,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          source: ".,! .git, ! .venv"
+          source: "**,!.git/**,!.venv/**"
           target: "/root/parent-bot"
 
       - name: Deploy on VPS
