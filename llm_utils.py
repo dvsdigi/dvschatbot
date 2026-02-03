@@ -10,9 +10,13 @@ def generate_bot_response(user_query, context):
     Generates a response using Hugging Face Inference API with an advanced Academic Persona.
     Analyzes student trends and provides proactive advice.
     """
+    token = os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN")
+    if not token:
+        print("Warning: No Hugging Face token found in environment!")
+        
     client = InferenceClient(
         model="Qwen/Qwen2.5-72B-Instruct",
-        token=os.getenv("HUGGINGFACE_TOKEN")
+        token=token
     )
     
     from datetime import datetime

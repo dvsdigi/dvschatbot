@@ -58,7 +58,7 @@ jobs:
             echo "Removing existing container..."
             docker rm parentbot || true
             echo "Starting new container..."
-            docker run -d -p 8001:8001 --name parentbot parentbot:latest || { echo "Container start failed"; exit 1; }
+            docker run -d -p 8001:8001 --env-file .env --name parentbot parentbot:latest || { echo "Container start failed"; exit 1; }
             echo "Checking status..."
             docker ps | grep parentbot
             echo "Cleaning up..."
