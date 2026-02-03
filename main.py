@@ -3,9 +3,12 @@ import jwt
 import requests
 from fastapi import FastAPI, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import db_utils
 import llm_utils
+import json
 
 load_dotenv()
 db_utils.init_db()
@@ -23,6 +26,13 @@ app.add_middleware(
 
 EXTERNAL_API_BASE_URL = os.getenv("EXTERNAL_API_BASE_URL")
 JWT_SECRET = os.getenv("JWT_SECRET", "secret") # Shared with the main website
+
+# Serve static files (JS, CSS, images) from the current directory
+app.mount("/static", StaticFiles(directory="."), name="static")
+
+@app.get("/")
+async def read_index():
+    return FileResponse("index.html")
 
 def get_parent_id_from_token(authorization: str = Header(None)):
     if not authorization:

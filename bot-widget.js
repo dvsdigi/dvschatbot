@@ -1,12 +1,19 @@
 (function () {
-    // Configuration
     const API_BASE_URL = "http://localhost:8001";
     let userToken = "";
+
+    // Load marked.js with a reliable check
+    if (!window.marked) {
+        const script = document.createElement('script');
+        script.src = "https://cdn.jsdelivr.net/npm/marked/marked.min.js";
+        script.async = true;
+        document.head.appendChild(script);
+    }
 
     // Load Styles
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'bot-styles.css';
+    link.href = '/static/bot-styles.css';
     document.head.appendChild(link);
 
     // Create UI Structure
@@ -15,14 +22,17 @@
     container.innerHTML = `
         <div id="parent-bot-window">
             <div id="parent-bot-header">
-                <span>Parent Bot</span>
-                <span id="close-bot" style="cursor:pointer">&times;</span>
+                <div class="bot-info">
+                    <div class="bot-title">Parent Bot</div>
+                    <div class="bot-status"><span class="status-dot"></span> Online</div>
+                </div>
+                <span id="close-bot" style="cursor:pointer; font-size: 24px;">&times;</span>
             </div>
             <div id="parent-bot-messages">
-                <div class="bot-msg">Welcome! Please provide your authentication token to start.</div>
+                <div class="bot-msg">Welcome! 👋 Please provide your authentication token to begin.</div>
             </div>
             <div id="parent-bot-input-area">
-                <input type="text" id="parent-bot-input" placeholder="Type your message...">
+                <input type="text" id="parent-bot-input" placeholder="Type a message..." autocomplete="off">
                 <button id="parent-bot-send">Send</button>
             </div>
         </div>
@@ -32,7 +42,6 @@
     `;
     document.body.appendChild(container);
 
-    // Elements
     const windowEl = document.getElementById('parent-bot-window');
     const launcherEl = document.getElementById('parent-bot-launcher');
     const closeEl = document.getElementById('close-bot');
@@ -40,20 +49,44 @@
     const sendBtn = document.getElementById('parent-bot-send');
     const messagesEl = document.getElementById('parent-bot-messages');
 
-    // Toggle Window
     launcherEl.onclick = () => windowEl.classList.toggle('active');
     closeEl.onclick = () => windowEl.classList.remove('active');
 
-    // Add Message to UI
     function addMessage(text, type) {
         const msg = document.createElement('div');
         msg.className = type + '-msg';
-        msg.innerText = text;
+        
+        // Wait for marked to be available if needed
+        if (type === 'bot' && window.marked) {
+            try {
+                msg.innerHTML = marked.parse(text);
+            } catch (e) {
+                console.error("Markdown parse error:", e);
+                msg.innerText = text;
+            }
+        } else {
+            msg.innerText = text;
+        }
+        
         messagesEl.appendChild(msg);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return msg;
+    }
+
+    function showTyping() {
+        const typing = document.createElement('div');
+        typing.id = 'bot-typing';
+        typing.className = 'typing';
+        typing.innerHTML = '<span></span><span></span><span></span>';
+        messagesEl.appendChild(typing);
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    // Handle Send
+    function hideTyping() {
+        const typing = document.getElementById('bot-typing');
+        if (typing) typing.remove();
+    }
+
     async function handleSend() {
         const text = inputEl.value.trim();
         if (!text) return;
@@ -61,39 +94,28 @@
         addMessage(text, 'user');
         inputEl.value = '';
 
-        // Case 1: Initial Authentication
         if (!userToken) {
             userToken = text;
-            addMessage("Authenticating...", 'bot');
+            showTyping();
             try {
-                console.log("Authenticating...");
                 const res = await fetch(`${API_BASE_URL}/api/student/details`, {
                     headers: { 'Authorization': `Bearer ${userToken}` }
                 });
-
-                if (!res.ok) {
-                    const errData = await res.json();
-                    throw new Error(errData.detail || "Authentication failed");
-                }
-
+                hideTyping();
+                if (!res.ok) throw new Error("Auth failed");
                 const data = await res.json();
-                console.log("Auth Success:", data);
-
-                if (data.error) {
-                    addMessage("Error: " + data.error, 'bot');
-                    userToken = "";
-                } else {
-                    addMessage(`Authenticated as parent of ${data.name}. How can I help you?`, 'bot');
-                }
+                if (data.error) throw new Error(data.error);
+                
+                addMessage(`Authenticated as parent of **${data.name}**. How can I assist you today?`, 'bot');
             } catch (e) {
-                console.error("Auth error:", e);
-                addMessage("Auth Error: " + e.message, 'bot');
+                hideTyping();
+                addMessage("Authentication Error: Please check your token.", 'bot');
                 userToken = "";
             }
             return;
         }
 
-        // Case 2: Regular Chat
+        showTyping();
         try {
             const res = await fetch(`${API_BASE_URL}/api/chat`, {
                 method: 'POST',
@@ -104,13 +126,16 @@
                 body: JSON.stringify({ text })
             });
             const data = await res.json();
+            hideTyping();
             addMessage(data.reply, 'bot');
         } catch (e) {
-            addMessage("Failed to send message.", 'bot');
+            hideTyping();
+            addMessage("I'm sorry, I'm having trouble connecting right now.", 'bot');
         }
     }
 
     sendBtn.onclick = handleSend;
     inputEl.onkeypress = (e) => { if (e.key === 'Enter') handleSend(); };
-
 })();
+
+
